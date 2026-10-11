@@ -37,8 +37,14 @@
   /* 横向き：画面の高さに収まるように、映像の枠を横長にする */
   @media (orientation: landscape) {
     body { max-width:960px; }
-    .stage { aspect-ratio:auto; height:64vh; min-height:200px; }
+    .stage { aspect-ratio:4/3; height:auto; width:min(100%, calc(72vh * 4 / 3)); margin-inline:auto; }
     .tabs, .card { margin-top:8px; }
+    /* 横向き：4:3の枠の中に、シャッターを右端の縦の列に配置（重ねない） */
+    .shutter-bar { top:0; bottom:0; left:auto; width:132px; flex-direction:column; justify-content:center; gap:22px; padding:16px 12px; background:linear-gradient(to left, rgba(0,0,0,.55), rgba(0,0,0,0)); }
+    .side-spacer { display:none; }
+    .top-bar { left:0; right:auto; justify-content:flex-start; gap:8px; }
+    .tag { top:auto; bottom:10px; left:10px; }
+    #btnDetails { display:none; }
     /* 横向きのカメラ画面：画面いっぱいに表示し、ほかの要素は隠す */
     body.fs { padding:0; max-width:none; }
     body.fs > *:not(#capture) { display:none !important; }
@@ -575,7 +581,7 @@
   function syncFs() {
     const landscape = window.matchMedia("(orientation: landscape)").matches;
     const capturing = !$("capture").classList.contains("hidden");
-    document.body.classList.toggle("fs", landscape && capturing && !detailsOpen);
+    document.body.classList.remove("fs");   // フルスクリーンは使わず、通常の表示の中に収める
   }
   $("btnDetails").addEventListener("click", () => {
     detailsOpen = !detailsOpen;
