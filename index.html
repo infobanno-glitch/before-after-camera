@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>作業前後カメラ</title>
+<style>
+  :root { --bg:#f5f5f2; --fg:#1d1d1b; --muted:#6b6b66; --line:#d9d9d2; --accent:#1f5f4a; --card:#ffffff; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#141513; --fg:#ecece6; --muted:#9a9a92; --line:#33342f; --accent:#6fc2a3; --card:#1d1e1b; color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { --bg:#141513; --fg:#ecece6; --muted:#9a9a92; --line:#33342f; --accent:#6fc2a3; --card:#1d1e1b; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--fg); font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif; font-size:15px; }
+  body { max-width:640px; margin-inline:auto; padding-inline:16px; padding-block: calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 24px); }
+  h1 { font-size:18px; margin:0 0 12px; }
+  button, input, textarea { font:inherit; color:inherit; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .btn { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 14px; cursor:pointer; min-height:44px; }
+  .btn.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); }
+  .btn:disabled { opacity:.4; }
+  .btn.big { width:100%; font-size:17px; }
+  input[type=text] { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; margin-top:12px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .hidden { display:none !important; }
+  .stage { position:relative; width:100%; aspect-ratio:3/4; background:#000; border-radius:10px; overflow:hidden; margin-top:12px; }
+  .stage img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .stage .ghost { opacity: var(--ghost, .5); }
+  .tag { position:absolute; left:8px; bottom:8px; background:rgba(0,0,0,.6); color:#fff; padding:4px 8px; border-radius:6px; font-size:12px; }
+  .ctrl { margin-top:12px; }
+  .ctrl label { display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
+  input[type=range] { width:100%; }
+  .tabs { display:flex; gap:8px; margin-top:12px; }
+  .tabs button { flex:1; }
+  .tabs button[aria-pressed="true"] { background:var(--accent); color:#fff; }
+  .jobs { display:grid; grid-template-columns:1fr; gap:10px; margin-top:8px; }
+  .job { display:grid; grid-template-columns:1fr 1fr; gap:6px; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--card); min-width:0; }
+  .job img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:6px; background:#ddd; }
+  .job .meta { grid-column:1 / -1; display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap; }
+  .gridlines { position:absolute; inset:0; pointer-events:none; z-index:1;
+    background-image: linear-gradient(to right, rgba(255,255,255,.55) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.55) 1px, transparent 1px);
+    background-size: 33.333% 33.333%; background-position: -1px -1px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+  input[type=file] { display:none; }
+</style>
+</head>
+<body>
+<h1>作業前後カメラ</h1>
+
+<div class="card">
+  <div class="ctrl" style="margin-top:0">
+    <label for="jobName">案件名・場所</label>
+    <input type="text" id="jobName" placeholder="例：沼津市 〇〇邸 給湯器交換">
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button class="btn" id="btnNewJob" type="button">新しい案件を開始</button>
+    <span class="muted" id="currentLabel">案件未選択</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="btn ghost" id="tabBefore" type="button" aria-pressed="true">作業前</button>
+  <button class="btn ghost" id="tabAfter" type="button" aria-pressed="false">作業後</button>
+</div>
+
+<!-- 撮影後の確認画面（作業後のときは作業前を半透明で重ねて構図を確認） -->
+<div id="review" class="hidden">
+  <div class="stage">
+    <img id="reviewImg" alt="">
+    <img id="reviewGhost" class="ghost hidden" alt="">
+    <div class="gridlines"></div>
+    <span class="tag" id="reviewTag"></span>
+  </div>
+  <div class="ctrl hidden" id="ghostCtrl">
+    <label for="ghostOpacity">作業前の写真の透け具合</label>
+    <input type="range" id="ghostOpacity" min="0" max="1" step="0.05" value="0.5">
+  </div>
+  <div class="row" style="margin-top:12px">
+    <button class="btn" id="btnSave" type="button">この写真で保存</button>
+    <button class="btn ghost" id="btnRetake" type="button">撮り直す</button>
+  </div>
+</div>
+
+<!-- 撮影前の画面 -->
+<div id="capture">
+  <div id="beforeRef" class="stage hidden"><img id="refImg" alt=""><div class="gridlines"></div><span class="tag">作業前（構図の参考）</span></div>
+  <div class="row" style="margin-top:12px">
+    <button class="btn big" id="btnShoot" type="button" disabled>撮影する</button>
+  </div>
+  <p class="muted" id="hint" style="margin-top:8px"></p>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" capture="environment">
+
+<div class="card">
+  <div class="row" style="justify-content:space-between">
+    <strong>案件一覧</strong>
+    <span class="muted" id="jobCount"></span>
+  </div>
+  <div class="jobs" id="jobs"></div>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  let mode = "before";        // "before" | "after"
+  let currentJobId = null;
+  let pending = null;         // 撮ったばかりの写真（保存前）
+  const jobsMap = new Map();
+
+  // ---------- storage ----------
+  let db = null;
+  function openDb() {
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open("before-after-camera", 1);
+        req.onupgradeneeded = () => req.result.createObjectStore("jobs", { keyPath: "id" });
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      } catch (e) { resolve(null); }
+    });
+  }
+  function saveJob(job) {
+    jobsMap.set(job.id, job);
+    if (!db) return;
+    try { db.transaction("jobs", "readwrite").objectStore("jobs").put(job); } catch (e) {}
+  }
+  function loadJobs() {
+    return new Promise((resolve) => {
+      if (!db) return resolve([]);
+      try {
+        const req = db.transaction("jobs", "readonly").objectStore("jobs").getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      } catch (e) { resolve([]); }
+    });
+  }
+
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+  function currentJob() { return jobsMap.get(currentJobId) || null; }
+  function fmt(iso) {
+    if (!iso) return "";
+    return new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  // ---------- screens ----------
+  function showCapture() {
+    $("review").classList.add("hidden");
+    $("capture").classList.remove("hidden");
+    const job = currentJob();
+    const ref = mode === "after" && job && job.before;
+    $("beforeRef").classList.toggle("hidden", !ref);
+    if (ref) $("refImg").src = job.before;
+    $("btnShoot").disabled = !job;
+    if (!job) $("hint").textContent = "先に案件名を入れて「新しい案件を開始」を押してください。";
+    else if (mode === "after" && !job.before) $("hint").textContent = "作業前の写真がまだありません。先に作業前を撮ってください。";
+    else if (mode === "after") $("hint").textContent = "上の作業前の写真と同じ位置に入るよう、カメラを合わせて撮ってください。";
+    else $("hint").textContent = "作業前の状態を撮ってください。作業後の撮影時に、この写真を重ねて確認できます。";
+    $("btnShoot").disabled = !job || (mode === "after" && !job.before);
+  }
+
+  function showReview(dataUrl) {
+    pending = dataUrl;
+    const job = currentJob();
+    $("reviewImg").src = dataUrl;
+    const ghostOn = mode === "after" && job && job.before;
+    $("reviewGhost").src = ghostOn ? job.before : "";
+    $("reviewGhost").classList.toggle("hidden", !ghostOn);
+    $("ghostCtrl").classList.toggle("hidden", !ghostOn);
+    $("reviewTag").textContent = mode === "before" ? "作業前" : "作業後（作業前を重ねて表示中）";
+    $("capture").classList.add("hidden");
+    $("review").classList.remove("hidden");
+  }
+
+  function setMode(m) {
+    mode = m;
+    $("tabBefore").setAttribute("aria-pressed", String(m === "before"));
+    $("tabAfter").setAttribute("aria-pressed", String(m === "after"));
+    showCapture();
+  }
+
+  // ---------- events ----------
+  $("btnShoot").addEventListener("click", () => $("fileInput").click());
+
+  $("fileInput").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    showReview(await fileToDataUrl(file));
+  });
+
+  $("btnRetake").addEventListener("click", () => {
+    pending = null;
+    showCapture();
+    $("fileInput").click();
+  });
+
+  $("btnSave").addEventListener("click", () => {
+    const job = currentJob();
+    if (!job || !pending) return;
+    if (mode === "before") {
+      job.before = pending;
+      job.beforeAt = new Date().toISOString();
+      job.after = null; job.afterAt = null;   // 作業前を撮り直したら作業後は消す
+    } else {
+      job.after = pending;
+      job.afterAt = new Date().toISOString();
+    }
+    saveJob(job);
+    pending = null;
+    renderJobs();
+    if (mode === "before") setMode("after");
+    else showCapture();
+  });
+
+  $("ghostOpacity").addEventListener("input", (e) => {
+    $("review").querySelector(".stage").style.setProperty("--ghost", e.target.value);
+  });
+
+  $("tabBefore").addEventListener("click", () => setMode("before"));
+  $("tabAfter").addEventListener("click", () => {
+    const job = currentJob();
+    if (!job || !job.before) return alert("先に作業前の写真を撮ってください");
+    setMode("after");
+  });
+
+  $("btnNewJob").addEventListener("click", () => {
+    const name = $("jobName").value.trim() || "無題の案件";
+    const job = { id: "j" + Date.now(), name, createdAt: new Date().toISOString(), before: null, after: null };
+    saveJob(job);
+    currentJobId = job.id;
+    $("currentLabel").textContent = name;
+    setMode("before");
+    renderJobs();
+  });
+
+  // 作業前・作業後を左右に並べた報告用の画像
+  function exportPair(job) {
+    const a = new Image(), b = new Image();
+    let loaded = 0;
+    const done = () => {
+      if (++loaded < 2) return;
+      const h = 800, scale = h / Math.max(a.height, b.height);
+      const wa = a.width * scale, wb = b.width * scale;
+      const pad = 24, label = 56;
+      const c = document.createElement("canvas");
+      c.width = Math.round(wa + wb + pad * 3);
+      c.height = Math.round(h + label + pad * 2);
+      const g = c.getContext("2d");
+      g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(a, pad, label + pad, wa, h);
+      g.drawImage(b, pad * 2 + wa, label + pad, wb, h);
+      g.fillStyle = "#1d1d1b"; g.font = "bold 26px sans-serif";
+      g.fillText("作業前", pad, label);
+      g.fillText("作業後", pad * 2 + wa, label);
+      const info = job.name + "  " + fmt(job.afterAt);
+      g.font = "16px sans-serif"; g.fillStyle = "#6b6b66";
+      g.fillText(info, c.width - pad - g.measureText(info).width, label);
+      const link = document.createElement("a");
+      link.href = c.toDataURL("image/jpeg", 0.92);
+      link.download = job.name + "_" + job.id + ".jpg";
+      document.body.appendChild(link); link.click(); link.remove();
+    };
+    a.onload = done; b.onload = done;
+    a.src = job.before; b.src = job.after;
+  }
+
+  function renderJobs() {
+    const list = $("jobs");
+    list.innerHTML = "";
+    const sorted = [...jobsMap.values()].sort((x, y) => (y.createdAt || "").localeCompare(x.createdAt || ""));
+    $("jobCount").textContent = sorted.length ? sorted.length + "件" : "";
+    if (!sorted.length) {
+      list.innerHTML = '<p class="muted">まだ案件がありません。</p>';
+      return;
+    }
+    for (const job of sorted) {
+      const card = document.createElement("div");
+      card.className = "job";
+      const bImg = document.createElement("img"); bImg.alt = "作業前"; if (job.before) bImg.src = job.before;
+      const aImg = document.createElement("img"); aImg.alt = "作業後"; if (job.after) aImg.src = job.after;
+      const meta = document.createElement("div"); meta.className = "meta";
+      const title = document.createElement("span");
+      title.style.fontSize = "13px";
+      title.textContent = job.name + "（作業前 " + fmt(job.beforeAt) + (job.afterAt ? "／作業後 " + fmt(job.afterAt) : "") + "）";
+      const btns = document.createElement("span"); btns.className = "row";
+      const pick = document.createElement("button");
+      pick.className = "btn ghost"; pick.type = "button"; pick.textContent = "この案件を続ける";
+      pick.addEventListener("click", () => {
+        currentJobId = job.id;
+        $("currentLabel").textContent = job.name;
+        $("jobName").value = job.name;
+        setMode(job.before ? "after" : "before");
+      });
+      const dl = document.createElement("button");
+      dl.className = "btn"; dl.type = "button"; dl.textContent = "報告用画像を保存";
+      dl.disabled = !(job.before && job.after);
+      dl.addEventListener("click", () => exportPair(job));
+      btns.append(pick, dl);
+      meta.append(title, btns);
+      card.append(bImg, aImg, meta);
+      list.appendChild(card);
+    }
+  }
+
+  (async function init() {
+    db = await openDb();
+    (await loadJobs()).forEach((j) => jobsMap.set(j.id, j));
+    renderJobs();
+    setMode("before");
+  })();
+})();
+</script>
+</body>
+</html>
