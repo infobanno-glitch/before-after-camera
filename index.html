@@ -129,6 +129,41 @@
     #review .row .btn { width:100%; }
     #review .stage { grid-column:2; grid-row:1 / span 2; margin-top:0; width:min(100%, calc(94vh * 4 / 3)); }
   }
+  /* 横向き：撮影・確認画面を上下いっぱいにする。案件の設定と一覧は「詳細」で開く */
+  @media (orientation: landscape) {
+    body { padding-block:8px; }
+    h1 { display:none; }
+    body:not(.details) .card:not(#refCard) { display:none; }
+    body.details .card { display:block; }
+    #btnDetails { display:inline-block !important; }
+    #capture .stage { width:calc((100vh - 110px) * 4 / 3); height:calc(100vh - 110px); margin-top:0; }
+    body.after #capture .stage { width:calc((100vh - 190px) * 4 / 3); height:calc(100vh - 190px); }
+    #review { display:grid; grid-template-columns:150px auto; column-gap:14px; align-items:start; justify-content:center; }
+    #review .ctrl { grid-column:1; grid-row:1; margin-top:0; }
+    #review .row { grid-column:1; grid-row:2; flex-direction:column; align-items:stretch; margin-top:0 !important; }
+    #review .row .btn { width:100%; }
+    #review .stage { grid-column:2; grid-row:1 / span 2; width:calc((100vh - 110px) * 4 / 3); height:calc(100vh - 110px); margin-top:0; }
+  }
+  @media (orientation: landscape) {
+    #refCard { padding:6px 8px; margin-top:6px; }
+    #refCard h2, #refHint { display:none; }
+    #refStrip { margin-top:0; padding-bottom:0; }
+    #refStrip .thumb { width:44px; }
+    #refStrip .thumb img { width:44px; height:58px; }
+    .tabs { margin-top:0; }
+    body.after #capture .stage { width:calc((100vh - 170px) * 4 / 3); height:calc(100vh - 170px); }
+    #review .stage { width:calc((100vh - 100px) * 4 / 3); height:calc(100vh - 100px); }
+  }
+  .tabs-mini { display:none; gap:6px; }
+  .tabs-mini .on { background:var(--accent); color:#fff; }
+  @media (orientation: landscape) {
+    .tabs { display:none !important; }
+    .tabs-mini { display:flex; }
+    #capture .stage { width:calc((100vh - 16px) * 4 / 3); height:calc(100vh - 16px); }
+    body.after #capture .stage { width:calc((100vh - 90px) * 4 / 3); height:calc(100vh - 90px); }
+    #review .stage { width:calc((100vh - 16px) * 4 / 3); height:calc(100vh - 16px); }
+    body.after #review .stage { width:calc((100vh - 90px) * 4 / 3); height:calc(100vh - 90px); }
+  }
 </style>
 </head>
 <body>
@@ -166,6 +201,10 @@
     <div class="top-bar">
       <button class="side-btn" id="btnFlip" type="button">カメラ切替</button>
       <button class="side-btn" id="btnDetails" type="button">詳細</button>
+      <div class="tabs-mini">
+        <button class="side-btn" id="mBefore" type="button">作業前</button>
+        <button class="side-btn" id="mAfter" type="button">作業後</button>
+      </div>
     </div>
     <div class="shutter-bar">
       <button class="shutter" id="btnShoot" type="button" disabled aria-label="撮影"></button>
@@ -453,6 +492,9 @@
     mode = m;
     $("tabBefore").setAttribute("aria-pressed", String(m === "before"));
     $("tabAfter").setAttribute("aria-pressed", String(m === "after"));
+    document.body.classList.toggle("after", m === "after");
+    $("mBefore").classList.toggle("on", m === "before");
+    $("mAfter").classList.toggle("on", m === "after");
     $("review").classList.add("hidden");
     $("capture").classList.remove("hidden");
     if (m === "after") {
@@ -523,6 +565,8 @@
 
   // ---------- 案件 ----------
   $("tabBefore").addEventListener("click", () => setMode("before"));
+  $("mBefore").addEventListener("click", () => $("tabBefore").click());
+  $("mAfter").addEventListener("click", () => $("tabAfter").click());
   $("tabAfter").addEventListener("click", () => {
     const j = job();
     if (!j || !befores(j).length) return alert("先に作業前の写真を撮ってください");
@@ -683,6 +727,7 @@
   }
   $("btnDetails").addEventListener("click", () => {
     detailsOpen = !detailsOpen;
+    document.body.classList.toggle("details", detailsOpen);
     $("btnDetails").textContent = detailsOpen ? "カメラに戻る" : "詳細";
     syncFs();
   });
