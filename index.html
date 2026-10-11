@@ -120,6 +120,15 @@
   .stage .gridlines { z-index:5; background-image: linear-gradient(to right, rgba(255,255,255,.85) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.85) 1px, transparent 1px); }
   .stage .gridlines.aligned { z-index:5; background-image: linear-gradient(to right, rgba(30,144,255,.95) 2px, transparent 2px), linear-gradient(to bottom, rgba(30,144,255,.95) 2px, transparent 2px); }
   .stage .gridlines.near { z-index:5; background-image: linear-gradient(to right, rgba(61,220,132,.95) 2px, transparent 2px), linear-gradient(to bottom, rgba(61,220,132,.95) 2px, transparent 2px); }
+  /* 横向き：撮影・確認画面を上下いっぱいに広げる。確認画面のボタンは左の列に置く */
+  @media (orientation: landscape) {
+    #capture .stage { width:min(100%, calc(94vh * 4 / 3)); }
+    #review { display:grid; grid-template-columns:170px auto; grid-template-rows:auto auto; align-items:center; justify-content:center; column-gap:16px; }
+    #review .ctrl { grid-column:1; grid-row:1; margin-top:0; }
+    #review .row { grid-column:1; grid-row:2; flex-direction:column; align-items:stretch; margin-top:0 !important; }
+    #review .row .btn { width:100%; }
+    #review .stage { grid-column:2; grid-row:1 / span 2; margin-top:0; width:min(100%, calc(94vh * 4 / 3)); }
+  }
 </style>
 </head>
 <body>
