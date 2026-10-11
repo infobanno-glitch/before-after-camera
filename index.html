@@ -66,6 +66,8 @@
   .gridlines { position:absolute; inset:0; pointer-events:none; z-index:2;
     background-image: linear-gradient(to right, rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.6) 1px, transparent 1px);
     background-size: 33.333% 33.333%; }
+  /* 構図が一致したとき（既定90%以上）は青色にする */
+  .gridlines.aligned { background-image: linear-gradient(to right, rgba(30,144,255,.95) 2px, transparent 2px), linear-gradient(to bottom, rgba(30,144,255,.95) 2px, transparent 2px); }
   .tag { position:absolute; left:10px; top:10px; z-index:3; background:rgba(0,0,0,.6); color:#fff; padding:4px 8px; border-radius:6px; font-size:12px; }
   /* ファインダー内の操作（標準カメラのような配置） */
   .top-bar { position:absolute; top:0; left:0; right:0; z-index:4; display:flex; justify-content:flex-end; padding:10px; }
@@ -96,6 +98,23 @@
   .pair { border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--card); }
   .err { color:var(--warn); font-size:13px; }
   #fileInput { display:none; }
+  /* 横向きの配置（基本の指定より後に書いて、確実に上書きする） */
+  @media (orientation: landscape) {
+    body { max-width:960px; }
+    .stage { aspect-ratio:4/3; height:auto; width:min(100%, calc(72vh * 4 / 3)); margin-inline:auto; }
+    .shutter-bar { top:0; bottom:0; left:auto; right:0; width:132px; flex-direction:column; justify-content:center; gap:22px; padding:16px 12px; background:linear-gradient(to left, rgba(0,0,0,.55), rgba(0,0,0,0)); }
+    .side-spacer { display:none; }
+    .top-bar { left:0; right:auto; justify-content:flex-start; gap:8px; }
+    .tag { top:auto; bottom:10px; left:10px; }
+    #btnDetails { display:none; }
+  }
+  /* 横向き：シャッターを映像枠の右外側に出し、白く目立たない色にする */
+  @media (orientation: landscape) {
+    .stage { overflow:visible; }
+    .shutter-bar { top:50%; bottom:auto; left:calc(100% + 18px); right:auto; width:auto; transform:translateY(-50%); flex-direction:column; justify-content:center; gap:18px; padding:0; background:none; }
+    .shutter { width:64px; height:64px; background:rgba(255,255,255,.25); border:3px solid rgba(255,255,255,.75); box-shadow:none; }
+    .shutter:disabled { opacity:.35; }
+  }
 </style>
 </head>
 <body>
@@ -128,14 +147,13 @@
   <div class="stage">
     <video id="video" autoplay playsinline muted></video>
     <img id="liveGhost" class="ghost hidden" alt="">
-    <div class="gridlines"></div>
+    <div class="gridlines" id="liveGrid"></div>
     <span class="tag" id="liveTag">作業前</span>
     <div class="top-bar">
       <button class="side-btn" id="btnFlip" type="button">カメラ切替</button>
       <button class="side-btn" id="btnDetails" type="button">詳細</button>
     </div>
     <div class="shutter-bar">
-      <button class="side-btn" id="btnPick" type="button">写真を選ぶ</button>
       <button class="shutter" id="btnShoot" type="button" disabled aria-label="撮影"></button>
       <span class="side-spacer"></span>
     </div>
@@ -262,7 +280,7 @@
     const err = $("camErr");
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext) {
       usingLive = false;
-      err.textContent = "このページではカメラを直接表示できません。「写真を選んで使う」から撮影してください。";
+      err.textContent = "このブラウザではカメラを表示できません。https://（GitHubのアドレス）で開き直してください。";
       err.classList.remove("hidden");
       updateShootButton();
       return;
@@ -339,6 +357,7 @@
     const ref = mode === "after" ? photoById(j, refId) : null;
     const liveOn = !!ref;
     $("liveGhost").src = liveOn ? ref.data : "";
+    prepareRef(liveOn ? ref : null);
     $("liveGhost").classList.toggle("hidden", !liveOn);
     $("liveCtrl").classList.toggle("hidden", !liveOn);
     $("liveTag").textContent = mode === "before" ? "作業前" : "作業後（前" + (liveOn ? numberOf(j, ref.id) : "") + " を重ねて表示中）";
@@ -454,7 +473,6 @@
     facing = facing === "environment" ? "user" : "environment";
     startCamera();
   });
-  $("btnPick").addEventListener("click", () => $("fileInput").click());
   $("fileInput").addEventListener("change", async (e) => {
     const file = e.target.files && e.target.files[0];
     e.target.value = "";
@@ -575,6 +593,67 @@
       });
     });
   });
+
+  // ---------- 構図の一致度（作業後のライブ表示で、作業前の写真と比べる） ----------
+  const ALIGN_THRESHOLD = 0.9;   // 一致とみなす割合（現場で調整できます）
+  const SIZE_W = 40, SIZE_H = 30;
+  const small = document.createElement("canvas");
+  small.width = SIZE_W; small.height = SIZE_H;
+  const sctx = small.getContext("2d", { willReadFrequently: true });
+  const refCache = { id: null, vec: null };
+
+  // 画面に表示される範囲（object-fit: cover と同じ切り抜き）を、小さな明るさのベクトルにする
+  function toVector(src, sw, sh) {
+    const stage = $("liveStage");
+    const targetAR = (stage.clientWidth || 4) / (stage.clientHeight || 3);
+    let cw = sw, ch = sh;
+    if (sw / sh > targetAR) cw = sh * targetAR; else ch = sw / targetAR;
+    const cx = (sw - cw) / 2, cy = (sh - ch) / 2;
+    sctx.drawImage(src, cx, cy, cw, ch, 0, 0, SIZE_W, SIZE_H);
+    const d = sctx.getImageData(0, 0, SIZE_W, SIZE_H).data;
+    const n = SIZE_W * SIZE_H;
+    const v = new Float32Array(n);
+    let sum = 0;
+    for (let i = 0, p = 0; i < n; i++, p += 4) {
+      const g = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+      v[i] = g; sum += g;
+    }
+    const mean = sum / n;
+    let norm = 0;
+    for (let i = 0; i < n; i++) { v[i] -= mean; norm += v[i] * v[i]; }
+    norm = Math.sqrt(norm) || 1;
+    for (let i = 0; i < n; i++) v[i] /= norm;
+    return v;
+  }
+
+  function prepareRef(ref) {
+    if (!ref) { refCache.id = null; refCache.vec = null; return; }
+    if (refCache.id === ref.id) return;
+    refCache.id = ref.id; refCache.vec = null;
+    const im = new Image();
+    im.onload = () => {
+      if (refCache.id === ref.id) refCache.vec = toVector(im, im.naturalWidth, im.naturalHeight);
+    };
+    im.src = ref.data;
+  }
+
+  function updateAlignment() {
+    const grid = $("liveGrid"), tagEl = $("liveTag");
+    const j = job();
+    const ref = mode === "after" ? photoById(j, refId) : null;
+    const hidden = $("capture").classList.contains("hidden");
+    if (!ref || !refCache.vec || !usingLive || !video.videoWidth || hidden) {
+      grid.classList.remove("aligned");
+      return;
+    }
+    const cur = toVector(video, video.videoWidth, video.videoHeight);
+    let dot = 0;
+    for (let i = 0; i < cur.length; i++) dot += cur[i] * refCache.vec[i];
+    const pct = Math.round(Math.max(0, dot) * 100);
+    grid.classList.toggle("aligned", pct >= ALIGN_THRESHOLD * 100);
+    tagEl.textContent = "作業後（前" + numberOf(j, ref.id) + " と一致 " + pct + "%）";
+  }
+  setInterval(updateAlignment, 250);
 
   // ---------- 横向きのフルスクリーン表示 ----------
   let detailsOpen = false;
