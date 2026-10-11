@@ -62,7 +62,7 @@
   @media (orientation: portrait) {
     .stage { aspect-ratio:3/4; }
   }
-  .stage .ghost { opacity: var(--ghost, .5); pointer-events:none; }
+  .stage .ghost { opacity: var(--ghost, .5); pointer-events:none; z-index:1; }
   .gridlines { position:absolute; inset:0; pointer-events:none; z-index:2;
     background-image: linear-gradient(to right, rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.6) 1px, transparent 1px);
     background-size: 33.333% 33.333%; }
@@ -71,12 +71,12 @@
   .tag { position:absolute; left:10px; top:10px; z-index:3; background:rgba(0,0,0,.6); color:#fff; padding:4px 8px; border-radius:6px; font-size:12px; }
   /* ファインダー内の操作（標準カメラのような配置） */
   .top-bar { position:absolute; top:0; left:0; right:0; z-index:4; display:flex; justify-content:flex-end; padding:10px; }
-  .shutter-bar { position:absolute; left:0; right:0; bottom:0; z-index:4; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px calc(env(safe-area-inset-bottom,0px) + 16px); background:linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0)); }
-  .shutter { width:76px; height:76px; border-radius:50%; border:4px solid #fff; background:#fff; padding:0; cursor:pointer; box-shadow:0 0 0 3px rgba(0,0,0,.35); flex:0 0 auto; }
+  .shutter-bar { position:absolute; left:0; right:0; bottom:0; z-index:4; display:flex; align-items:center; justify-content:center; gap:12px; padding:16px 20px calc(env(safe-area-inset-bottom,0px) + 16px); background:linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0)); }
+  .shutter { width:68px; height:68px; border-radius:50%; border:3px solid rgba(255,255,255,.75); background:rgba(255,255,255,.25); padding:0; cursor:pointer; box-shadow:none; flex:0 0 auto; }
   .shutter:disabled { opacity:.35; }
   .shutter:active { transform:scale(.94); }
   .side-btn { background:rgba(0,0,0,.45); color:#fff; border:0; border-radius:999px; padding:8px 14px; min-height:40px; font-size:13px; cursor:pointer; }
-  .side-spacer { width:96px; flex:0 0 auto; }
+  .side-spacer { display:none; }
   .ctrl { margin-top:10px; }
   .ctrl label { display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
 
@@ -144,7 +144,7 @@
 
 <!-- ライブのカメラ画面 -->
 <div id="capture">
-  <div class="stage">
+  <div class="stage" id="liveStage">
     <video id="video" autoplay playsinline muted></video>
     <img id="liveGhost" class="ghost hidden" alt="">
     <div class="gridlines" id="liveGrid"></div>
@@ -653,7 +653,7 @@
     grid.classList.toggle("aligned", pct >= ALIGN_THRESHOLD * 100);
     tagEl.textContent = "作業後（前" + numberOf(j, ref.id) + " と一致 " + pct + "%）";
   }
-  setInterval(updateAlignment, 250);
+  setInterval(() => { try { updateAlignment(); } catch (e) {} }, 250);
 
   // ---------- 横向きのフルスクリーン表示 ----------
   let detailsOpen = false;
