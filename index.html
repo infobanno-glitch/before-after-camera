@@ -115,6 +115,10 @@
     .shutter { width:64px; height:64px; background:rgba(255,255,255,.25); border:3px solid rgba(255,255,255,.75); box-shadow:none; }
     .shutter:disabled { opacity:.35; }
   }
+  /* グリット線は、映像・作業前の写真より必ず前に出す */
+  .stage { isolation:isolate; }
+  .stage .gridlines { z-index:5; background-image: linear-gradient(to right, rgba(255,255,255,.85) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.85) 1px, transparent 1px); }
+  .stage .gridlines.aligned { z-index:5; background-image: linear-gradient(to right, rgba(30,144,255,.95) 2px, transparent 2px), linear-gradient(to bottom, rgba(30,144,255,.95) 2px, transparent 2px); }
 </style>
 </head>
 <body>
