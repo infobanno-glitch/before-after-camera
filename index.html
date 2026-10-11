@@ -119,6 +119,7 @@
   .stage { isolation:isolate; }
   .stage .gridlines { z-index:5; background-image: linear-gradient(to right, rgba(255,255,255,.85) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.85) 1px, transparent 1px); }
   .stage .gridlines.aligned { z-index:5; background-image: linear-gradient(to right, rgba(30,144,255,.95) 2px, transparent 2px), linear-gradient(to bottom, rgba(30,144,255,.95) 2px, transparent 2px); }
+  .stage .gridlines.near { z-index:5; background-image: linear-gradient(to right, rgba(61,220,132,.95) 2px, transparent 2px), linear-gradient(to bottom, rgba(61,220,132,.95) 2px, transparent 2px); }
 </style>
 </head>
 <body>
@@ -647,14 +648,19 @@
     const ref = mode === "after" ? photoById(j, refId) : null;
     const hidden = $("capture").classList.contains("hidden");
     if (!ref || !refCache.vec || !usingLive || !video.videoWidth || hidden) {
-      grid.classList.remove("aligned");
+      grid.classList.remove("aligned", "near");
+      tagEl.style.color = "";
       return;
     }
     const cur = toVector(video, video.videoWidth, video.videoHeight);
     let dot = 0;
     for (let i = 0; i < cur.length; i++) dot += cur[i] * refCache.vec[i];
     const pct = Math.round(Math.max(0, dot) * 100);
-    grid.classList.toggle("aligned", pct >= ALIGN_THRESHOLD * 100);
+    // 70%超で緑、80%以上で青（線と数字の色を揃える）
+    const level = pct >= 80 ? "aligned" : pct > 70 ? "near" : "";
+    grid.classList.toggle("aligned", level === "aligned");
+    grid.classList.toggle("near", level === "near");
+    tagEl.style.color = level === "aligned" ? "#5ab4ff" : level === "near" ? "#6fe08a" : "#ffffff";
     tagEl.textContent = "作業後（前" + numberOf(j, ref.id) + " と一致 " + pct + "%）";
   }
   setInterval(() => { try { updateAlignment(); } catch (e) {} }, 250);
