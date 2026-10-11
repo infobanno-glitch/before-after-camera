@@ -5,24 +5,27 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>作業前後カメラ</title>
 <style>
-  :root { --bg:#f5f5f2; --fg:#1d1d1b; --muted:#6b6b66; --line:#d9d9d2; --accent:#1f5f4a; --card:#ffffff; color-scheme: light; }
+  :root { --bg:#f5f5f2; --fg:#1d1d1b; --muted:#6b6b66; --line:#d9d9d2; --accent:#1f5f4a; --card:#ffffff; --warn:#b3261e; color-scheme: light; }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg:#141513; --fg:#ecece6; --muted:#9a9a92; --line:#33342f; --accent:#6fc2a3; --card:#1d1e1b; color-scheme: dark; }
+    :root:not([data-theme="light"]) { --bg:#141513; --fg:#ecece6; --muted:#9a9a92; --line:#33342f; --accent:#6fc2a3; --card:#1d1e1b; --warn:#f2a39b; color-scheme: dark; }
   }
-  :root[data-theme="dark"] { --bg:#141513; --fg:#ecece6; --muted:#9a9a92; --line:#33342f; --accent:#6fc2a3; --card:#1d1e1b; color-scheme: dark; }
+  :root[data-theme="dark"] { --bg:#141513; --fg:#ecece6; --muted:#9a9a92; --line:#33342f; --accent:#6fc2a3; --card:#1d1e1b; --warn:#f2a39b; color-scheme: dark; }
   * { box-sizing:border-box; }
   html, body { margin:0; background:var(--bg); color:var(--fg); font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif; font-size:15px; }
   body { max-width:640px; margin-inline:auto; padding-inline:16px; padding-block: calc(env(safe-area-inset-top,0px) + 12px) calc(env(safe-area-inset-bottom,0px) + 24px); }
   h1 { font-size:18px; margin:0 0 10px; }
+  h2 { font-size:15px; margin:0 0 8px; }
   button, input { font:inherit; color:inherit; }
   .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .btn { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 14px; cursor:pointer; min-height:44px; }
   .btn.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); }
+  .btn.danger { background:transparent; color:var(--warn); border:1px solid var(--line); }
+  .btn.small { min-height:32px; padding:6px 10px; font-size:13px; }
   .btn:disabled { opacity:.4; }
   .btn.big { width:100%; font-size:17px; }
   input[type=text] { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
   input[type=range] { width:100%; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; margin-top:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; margin-top:12px; min-width:0; }
   .muted { color:var(--muted); font-size:13px; }
   .hidden { display:none !important; }
   .tabs { display:flex; gap:8px; margin-top:12px; }
@@ -38,11 +41,24 @@
   .tag { position:absolute; left:8px; bottom:8px; z-index:3; background:rgba(0,0,0,.6); color:#fff; padding:4px 8px; border-radius:6px; font-size:12px; }
   .ctrl { margin-top:10px; }
   .ctrl label { display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
-  .jobs { display:grid; grid-template-columns:1fr; gap:10px; margin-top:8px; }
-  .job { display:grid; grid-template-columns:1fr 1fr; gap:6px; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--card); min-width:0; }
-  .job img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:6px; background:#ddd; }
-  .job .meta { grid-column:1 / -1; display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap; }
-  .err { color:#b3261e; font-size:13px; }
+
+  /* 作業前の選択一覧（作業後の撮影時） */
+  .strip { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-top:8px; }
+  .thumb { position:relative; flex:0 0 auto; width:72px; border:2px solid transparent; border-radius:8px; padding:0; background:none; cursor:pointer; }
+  .thumb img { display:block; width:72px; height:96px; object-fit:cover; border-radius:6px; }
+  .thumb.sel { border-color:var(--accent); }
+  .thumb .n { position:absolute; left:4px; bottom:4px; background:rgba(0,0,0,.6); color:#fff; font-size:11px; padding:1px 5px; border-radius:4px; }
+  .thumb .done { position:absolute; right:4px; top:4px; background:var(--accent); color:#fff; font-size:11px; padding:1px 5px; border-radius:4px; }
+
+  /* 撮影済みの写真 */
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap:8px; }
+  .pic { position:relative; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--card); min-width:0; }
+  .pic img { display:block; width:100%; aspect-ratio:3/4; object-fit:cover; }
+  .pic .cap { font-size:12px; padding:4px 6px; display:flex; justify-content:space-between; gap:4px; align-items:center; }
+  .pic .del { position:absolute; right:4px; top:4px; background:rgba(0,0,0,.6); color:#fff; border:0; border-radius:6px; padding:2px 7px; cursor:pointer; }
+  .pair-list { display:grid; gap:8px; margin-top:8px; }
+  .pair { border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--card); }
+  .err { color:var(--warn); font-size:13px; }
   #fileInput { display:none; }
 </style>
 </head>
@@ -54,18 +70,26 @@
   <input type="text" id="jobName" placeholder="例：沼津市 〇〇邸 給湯器交換" style="margin-top:4px">
   <div class="row" style="margin-top:10px">
     <button class="btn" id="btnNewJob" type="button">新しい案件を開始</button>
-    <span class="muted" id="currentLabel">案件未選択</span>
+    <select id="jobSelect" class="btn ghost small" style="min-height:36px"></select>
   </div>
+  <p class="muted" id="jobInfo" style="margin:8px 0 0"></p>
 </div>
 
 <div class="tabs">
-  <button class="btn ghost" id="tabBefore" type="button" aria-pressed="true">作業前</button>
-  <button class="btn ghost" id="tabAfter" type="button" aria-pressed="false">作業後</button>
+  <button class="btn ghost" id="tabBefore" type="button" aria-pressed="true">作業前を撮る</button>
+  <button class="btn ghost" id="tabAfter" type="button" aria-pressed="false">作業後を撮る</button>
+</div>
+
+<!-- 作業後のとき：重ねる作業前を選ぶ -->
+<div class="card hidden" id="refCard">
+  <h2>重ねる作業前の写真を選ぶ</h2>
+  <div class="strip" id="refStrip"></div>
+  <p class="muted" id="refHint" style="margin:6px 0 0"></p>
 </div>
 
 <!-- ライブのカメラ画面 -->
 <div id="capture">
-  <div class="stage" id="liveStage">
+  <div class="stage">
     <video id="video" autoplay playsinline muted></video>
     <img id="liveGhost" class="ghost hidden" alt="">
     <div class="gridlines"></div>
@@ -106,12 +130,21 @@
 
 <input type="file" id="fileInput" accept="image/*" capture="environment">
 
-<div class="card">
+<!-- 撮影済みの写真 -->
+<div class="card" id="photosCard">
+  <h2>作業前の写真 <span class="muted" id="beforeCount"></span></h2>
+  <div class="grid" id="beforeGrid"></div>
+  <h2 style="margin-top:14px">作業後の写真 <span class="muted" id="afterCount"></span></h2>
+  <div class="grid" id="afterGrid"></div>
+</div>
+
+<!-- 組ごとの報告 -->
+<div class="card" id="pairsCard">
   <div class="row" style="justify-content:space-between">
-    <strong>案件一覧</strong>
-    <span class="muted" id="jobCount"></span>
+    <h2 style="margin:0">報告用の組</h2>
+    <button class="btn small" id="btnSaveAll" type="button">すべての組を保存</button>
   </div>
-  <div class="jobs" id="jobs"></div>
+  <div class="pair-list" id="pairList"></div>
 </div>
 
 <canvas id="work" class="hidden"></canvas>
@@ -123,6 +156,7 @@
   let stream = null, facing = "environment";
   let mode = "before";
   let currentJobId = null;
+  let refId = null;          // 作業後で重ねる作業前の写真ID
   let pending = null;
   let usingLive = false;
   const jobsMap = new Map();
@@ -132,8 +166,11 @@
   function openDb() {
     return new Promise((resolve) => {
       try {
-        const req = indexedDB.open("before-after-camera", 1);
-        req.onupgradeneeded = () => req.result.createObjectStore("jobs", { keyPath: "id" });
+        const req = indexedDB.open("before-after-camera", 2);
+        req.onupgradeneeded = () => {
+          const d = req.result;
+          if (!d.objectStoreNames.contains("jobs")) d.createObjectStore("jobs", { keyPath: "id" });
+        };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => resolve(null);
       } catch (e) { resolve(null); }
@@ -162,20 +199,34 @@
       r.readAsDataURL(file);
     });
   }
-  function currentJob() { return jobsMap.get(currentJobId) || null; }
+
+  // ---------- 案件・写真のヘルパー ----------
+  // job.photos: [{id, kind:"before"|"after", data, at, pairId}]
+  function job() { return jobsMap.get(currentJobId) || null; }
+  function befores(j) { return j ? j.photos.filter((p) => p.kind === "before") : []; }
+  function afters(j) { return j ? j.photos.filter((p) => p.kind === "after") : []; }
+  function photoById(j, id) { return j ? j.photos.find((p) => p.id === id) : null; }
+  function pairCount(j, beforeId) { return afters(j).filter((a) => a.pairId === beforeId).length; }
+  function nextUnpairedBefore(j) {
+    return befores(j).find((b) => pairCount(j, b.id) === 0) || null;
+  }
+  function numberOf(j, beforeId) {
+    return befores(j).findIndex((b) => b.id === beforeId) + 1;
+  }
   function fmt(iso) {
     if (!iso) return "";
     return new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
+  function uid(p) { return p + Date.now() + Math.random().toString(36).slice(2, 6); }
 
-  // ---------- カメラ（ライブ表示） ----------
+  // ---------- カメラ ----------
   async function startCamera() {
     const err = $("camErr");
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext) {
       usingLive = false;
-      $("btnShoot").disabled = true;
       err.textContent = "このページではカメラを直接表示できません。「写真を選んで使う」から撮影してください。";
       err.classList.remove("hidden");
+      updateShootButton();
       return;
     }
     try {
@@ -188,13 +239,12 @@
       await video.play().catch(() => {});
       usingLive = true;
       err.classList.add("hidden");
-      updateShootButton();
     } catch (e) {
       usingLive = false;
-      $("btnShoot").disabled = true;
       err.textContent = "カメラの使用が許可されていません。ブラウザのこのサイトのカメラ設定を「許可」にして、再読み込みしてください。";
       err.classList.remove("hidden");
     }
+    updateShootButton();
   }
 
   function grabFrame() {
@@ -206,52 +256,158 @@
   }
 
   function updateShootButton() {
-    const job = currentJob();
-    const ok = usingLive && job && !(mode === "after" && !job.before);
-    $("btnShoot").disabled = !ok;
-    if (!job) $("hint").textContent = "先に案件名を入れて「新しい案件を開始」を押してください。";
-    else if (mode === "after" && !job.before) $("hint").textContent = "作業前の写真がまだありません。先に作業前を撮ってください。";
-    else if (mode === "after") $("hint").textContent = "半透明の作業前の写真と、グリット線の位置を合わせて撮影してください。";
-    else $("hint").textContent = "作業前の状態を撮影してください。";
+    const j = job();
+    let ok = !!j;
+    if (mode === "after" && !refId) ok = false;
+    if (mode === "after" && j && befores(j).length === 0) ok = false;
+    $("btnShoot").disabled = !(ok && usingLive);
+    if (!j) $("hint").textContent = "先に案件名を入れて「新しい案件を開始」を押してください。";
+    else if (mode === "before") $("hint").textContent = "作業前の写真を、必要な枚数だけ続けて撮ってください。";
+    else if (!befores(j).length) $("hint").textContent = "作業前の写真がまだありません。先に作業前を撮ってください。";
+    else if (!refId) $("hint").textContent = "上で、重ねる作業前の写真を選んでください。";
+    else $("hint").textContent = "半透明の作業前の写真と、グリット線の位置を合わせて撮影してください。";
   }
 
-  function refreshLiveGhost() {
-    const job = currentJob();
-    const on = mode === "after" && job && job.before;
-    $("liveGhost").src = on ? job.before : "";
-    $("liveGhost").classList.toggle("hidden", !on);
-    $("liveCtrl").classList.toggle("hidden", !on);
-    $("liveTag").textContent = mode === "before" ? "作業前" : "作業後（作業前を重ねて表示中）";
+  // ---------- 表示の更新 ----------
+  function renderRefStrip() {
+    const j = job();
+    const strip = $("refStrip");
+    strip.innerHTML = "";
+    const list = befores(j);
+    if (!list.length) { $("refHint").textContent = ""; return; }
+    list.forEach((b, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "thumb" + (b.id === refId ? " sel" : "");
+      const img = document.createElement("img"); img.src = b.data; img.alt = "作業前 " + (i + 1);
+      const n = document.createElement("span"); n.className = "n"; n.textContent = "前" + (i + 1);
+      btn.append(img, n);
+      const c = pairCount(j, b.id);
+      if (c) {
+        const d = document.createElement("span"); d.className = "done"; d.textContent = c + "枚";
+        btn.append(d);
+      }
+      btn.addEventListener("click", () => { refId = b.id; refresh(); });
+      strip.appendChild(btn);
+    });
+    const ref = photoById(j, refId);
+    $("refHint").textContent = ref
+      ? "前" + numberOf(j, ref.id) + " を重ねています。緑の数字は、このお写真に対応する作業後の枚数です。"
+      : "重ねる作業前の写真をタップして選んでください。";
   }
 
-  function showCapture() {
-    $("review").classList.add("hidden");
-    $("capture").classList.remove("hidden");
-    refreshLiveGhost();
+  function refreshGhostLayers() {
+    const j = job();
+    const ref = mode === "after" ? photoById(j, refId) : null;
+    const liveOn = !!ref;
+    $("liveGhost").src = liveOn ? ref.data : "";
+    $("liveGhost").classList.toggle("hidden", !liveOn);
+    $("liveCtrl").classList.toggle("hidden", !liveOn);
+    $("liveTag").textContent = mode === "before" ? "作業前" : "作業後（前" + (liveOn ? numberOf(j, ref.id) : "") + " を重ねて表示中）";
+  }
+
+  function renderPhotos() {
+    const j = job();
+    const bGrid = $("beforeGrid"), aGrid = $("afterGrid");
+    bGrid.innerHTML = ""; aGrid.innerHTML = "";
+    $("beforeCount").textContent = j ? befores(j).length + "枚" : "";
+    $("afterCount").textContent = j ? afters(j).length + "枚" : "";
+    if (!j) return;
+    befores(j).forEach((p, i) => bGrid.appendChild(photoCard(j, p, "前" + (i + 1))));
+    afters(j).forEach((p) => {
+      const label = p.pairId ? "後 → 前" + numberOf(j, p.pairId) : "後（組なし）";
+      aGrid.appendChild(photoCard(j, p, label));
+    });
+  }
+
+  function photoCard(j, p, label) {
+    const wrap = document.createElement("div");
+    wrap.className = "pic";
+    const img = document.createElement("img"); img.src = p.data; img.alt = label;
+    const cap = document.createElement("div"); cap.className = "cap";
+    const t = document.createElement("span"); t.textContent = label + "　" + fmt(p.at);
+    const del = document.createElement("button");
+    del.type = "button"; del.className = "del"; del.textContent = "削除";
+    del.addEventListener("click", () => {
+      if (!confirm("この写真を削除しますか？")) return;
+      j.photos = j.photos.filter((x) => x.id !== p.id);
+      if (refId === p.id) refId = null;
+      saveJob(j);
+      refresh();
+    });
+    cap.appendChild(t);
+    wrap.append(img, cap, del);
+    return wrap;
+  }
+
+  function renderPairs() {
+    const j = job();
+    const list = $("pairList");
+    list.innerHTML = "";
+    if (!j) return;
+    const pairs = befores(j).map((b, i) => ({ b, n: i + 1, a: afters(j).filter((x) => x.pairId === b.id) }))
+      .filter((x) => x.a.length);
+    if (!pairs.length) { list.innerHTML = '<p class="muted">作業後の写真を撮ると、ここに組が表示されます。</p>'; return; }
+    for (const x of pairs) {
+      x.a.forEach((a, k) => {
+        const row = document.createElement("div");
+        row.className = "pair row";
+        row.style.justifyContent = "space-between";
+        const label = document.createElement("span");
+        label.style.fontSize = "13px";
+        label.textContent = "前" + x.n + "（作業前）と 後" + (k + 1) + "（作業後）";
+        const btn = document.createElement("button");
+        btn.type = "button"; btn.className = "btn small"; btn.textContent = "報告用画像を保存";
+        btn.addEventListener("click", () => exportPair(x.b, a, x.n, k + 1));
+        row.append(label, btn);
+        list.appendChild(row);
+      });
+    }
+  }
+
+  function refresh() {
     updateShootButton();
-  }
-
-  function showReview(dataUrl) {
-    pending = dataUrl;
-    const job = currentJob();
-    $("reviewImg").src = dataUrl;
-    const on = mode === "after" && job && job.before;
-    $("reviewGhost").src = on ? job.before : "";
-    $("reviewGhost").classList.toggle("hidden", !on);
-    $("reviewCtrl").classList.toggle("hidden", !on);
-    $("reviewTag").textContent = mode === "before" ? "作業前" : "作業後";
-    $("capture").classList.add("hidden");
-    $("review").classList.remove("hidden");
+    refreshGhostLayers();
+    $("refCard").classList.toggle("hidden", mode !== "after");
+    if (mode === "after") renderRefStrip();
+    renderPhotos();
+    renderPairs();
+    $("jobInfo").textContent = job()
+      ? "作業前 " + befores(job()).length + "枚／作業後 " + afters(job()).length + "枚"
+      : "";
+    $("btnSaveAll").disabled = !(job() && afters(job()).some((a) => a.pairId));
   }
 
   function setMode(m) {
     mode = m;
     $("tabBefore").setAttribute("aria-pressed", String(m === "before"));
     $("tabAfter").setAttribute("aria-pressed", String(m === "after"));
-    showCapture();
+    $("review").classList.add("hidden");
+    $("capture").classList.remove("hidden");
+    if (m === "after") {
+      const j = job();
+      if (!refId || !photoById(j, refId)) {
+        const next = nextUnpairedBefore(j) || befores(j)[0] || null;
+        refId = next ? next.id : null;
+      }
+    }
+    refresh();
   }
 
-  // ---------- イベント ----------
+  function showReview(dataUrl) {
+    pending = dataUrl;
+    const j = job();
+    const ref = mode === "after" ? photoById(j, refId) : null;
+    $("reviewImg").src = dataUrl;
+    $("reviewGhost").src = ref ? ref.data : "";
+    $("reviewGhost").classList.toggle("hidden", !ref);
+    $("reviewCtrl").classList.toggle("hidden", !ref);
+    $("reviewTag").textContent = mode === "before" ? "作業前" : "作業後" + (ref ? "（前" + numberOf(j, ref.id) + " を重ねて表示中）" : "");
+    $("capture").classList.add("hidden");
+    $("review").classList.remove("hidden");
+  }
+
+  // ---------- 撮影・保存 ----------
   $("btnShoot").addEventListener("click", () => {
     const data = grabFrame();
     if (data) showReview(data);
@@ -267,113 +423,136 @@
     if (!file) return;
     showReview(await fileToDataUrl(file));
   });
-  $("btnRetake").addEventListener("click", () => { pending = null; showCapture(); });
-  $("btnSave").addEventListener("click", () => {
-    const job = currentJob();
-    if (!job || !pending) return;
-    if (mode === "before") {
-      job.before = pending; job.beforeAt = new Date().toISOString();
-      job.after = null; job.afterAt = null;
-    } else {
-      job.after = pending; job.afterAt = new Date().toISOString();
-    }
-    saveJob(job);
+  $("btnRetake").addEventListener("click", () => {
     pending = null;
-    renderJobs();
-    if (mode === "before") setMode("after"); else showCapture();
+    $("review").classList.add("hidden");
+    $("capture").classList.remove("hidden");
+  });
+  $("btnSave").addEventListener("click", () => {
+    const j = job();
+    if (!j || !pending) return;
+    const photo = { id: uid("p"), kind: mode, data: pending, at: new Date().toISOString(), pairId: null };
+    if (mode === "after") {
+      photo.pairId = refId;
+    }
+    j.photos.push(photo);
+    saveJob(j);
+    pending = null;
+    $("review").classList.add("hidden");
+    $("capture").classList.remove("hidden");
+    if (mode === "after") {
+      // 次の作業後は、まだ組になっていない作業前を自動で選ぶ
+      const next = nextUnpairedBefore(j);
+      if (next) refId = next.id;
+    }
+    refresh();
   });
 
-  $("liveOpacity").addEventListener("input", (e) => $("liveStage").style.setProperty("--ghost", e.target.value));
-  $("reviewOpacity").addEventListener("input", (e) => e.target.closest("#review").querySelector(".stage").style.setProperty("--ghost", e.target.value));
+  $("liveOpacity").addEventListener("input", (e) => $("capture").querySelector(".stage").style.setProperty("--ghost", e.target.value));
+  $("reviewOpacity").addEventListener("input", (e) => $("review").querySelector(".stage").style.setProperty("--ghost", e.target.value));
 
+  // ---------- 案件 ----------
   $("tabBefore").addEventListener("click", () => setMode("before"));
   $("tabAfter").addEventListener("click", () => {
-    const job = currentJob();
-    if (!job || !job.before) return alert("先に作業前の写真を撮ってください");
+    const j = job();
+    if (!j || !befores(j).length) return alert("先に作業前の写真を撮ってください");
     setMode("after");
   });
 
+  function selectJob(id) {
+    currentJobId = id;
+    const j = job();
+    if (j) $("jobName").value = j.name;
+    refId = null;
+    setMode(j && befores(j).length ? "after" : "before");
+    renderJobSelect();
+  }
+
   $("btnNewJob").addEventListener("click", () => {
     const name = $("jobName").value.trim() || "無題の案件";
-    const job = { id: "j" + Date.now(), name, createdAt: new Date().toISOString(), before: null, after: null };
-    saveJob(job);
-    currentJobId = job.id;
-    $("currentLabel").textContent = name;
-    setMode("before");
-    renderJobs();
+    const j = { id: uid("j"), name, createdAt: new Date().toISOString(), photos: [] };
+    saveJob(j);
+    selectJob(j.id);
   });
 
-  // ---------- 報告用画像 ----------
-  function exportPair(job) {
-    const a = new Image(), b = new Image();
+  $("jobSelect").addEventListener("change", (e) => {
+    if (e.target.value) selectJob(e.target.value);
+  });
+
+  function renderJobSelect() {
+    const sel = $("jobSelect");
+    const sorted = [...jobsMap.values()].sort((x, y) => (y.createdAt || "").localeCompare(x.createdAt || ""));
+    sel.innerHTML = "";
+    const blank = document.createElement("option");
+    blank.value = ""; blank.textContent = sorted.length ? "過去の案件を開く" : "案件はまだありません";
+    sel.appendChild(blank);
+    for (const j of sorted) {
+      const o = document.createElement("option");
+      o.value = j.id; o.textContent = j.name;
+      if (j.id === currentJobId) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+
+  // ---------- 報告用画像（作業前と作業後を左右に並べる） ----------
+  function exportPair(b, a, nBefore, nAfter) {
+    const im1 = new Image(), im2 = new Image();
     let loaded = 0;
     const done = () => {
       if (++loaded < 2) return;
-      const h = 800, scale = h / Math.max(a.height, b.height);
-      const wa = a.width * scale, wb = b.width * scale;
-      const pad = 24, label = 56;
+      const j = job();
+      const h = 800, scale = h / Math.max(im1.height, im2.height);
+      const w1 = im1.width * scale, w2 = im2.width * scale;
+      const pad = 24, label = 64;
       const c = document.createElement("canvas");
-      c.width = Math.round(wa + wb + pad * 3);
+      c.width = Math.round(w1 + w2 + pad * 3);
       c.height = Math.round(h + label + pad * 2);
       const g = c.getContext("2d");
       g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
-      g.drawImage(a, pad, label + pad, wa, h);
-      g.drawImage(b, pad * 2 + wa, label + pad, wb, h);
+      g.drawImage(im1, pad, label + pad, w1, h);
+      g.drawImage(im2, pad * 2 + w1, label + pad, w2, h);
       g.fillStyle = "#1d1d1b"; g.font = "bold 26px sans-serif";
-      g.fillText("作業前", pad, label);
-      g.fillText("作業後", pad * 2 + wa, label);
-      const info = job.name + "  " + fmt(job.afterAt);
+      g.fillText("作業前 " + nBefore, pad, label);
+      g.fillText("作業後 " + nAfter, pad * 2 + w1, label);
+      const info = (j ? j.name : "") + "  " + fmt(a.at);
       g.font = "16px sans-serif"; g.fillStyle = "#6b6b66";
       g.fillText(info, c.width - pad - g.measureText(info).width, label);
       const link = document.createElement("a");
       link.href = c.toDataURL("image/jpeg", 0.92);
-      link.download = job.name + "_" + job.id + ".jpg";
+      link.download = (j ? j.name : "報告") + "_前" + nBefore + "_後" + nAfter + ".jpg";
       document.body.appendChild(link); link.click(); link.remove();
     };
-    a.onload = done; b.onload = done;
-    a.src = job.before; b.src = job.after;
+    im1.onload = done; im2.onload = done;
+    im1.src = b.data; im2.src = a.data;
   }
 
-  function renderJobs() {
-    const list = $("jobs");
-    list.innerHTML = "";
-    const sorted = [...jobsMap.values()].sort((x, y) => (y.createdAt || "").localeCompare(x.createdAt || ""));
-    $("jobCount").textContent = sorted.length ? sorted.length + "件" : "";
-    if (!sorted.length) { list.innerHTML = '<p class="muted">まだ案件がありません。</p>'; return; }
-    for (const job of sorted) {
-      const card = document.createElement("div");
-      card.className = "job";
-      const bImg = document.createElement("img"); bImg.alt = "作業前"; if (job.before) bImg.src = job.before;
-      const aImg = document.createElement("img"); aImg.alt = "作業後"; if (job.after) aImg.src = job.after;
-      const meta = document.createElement("div"); meta.className = "meta";
-      const title = document.createElement("span");
-      title.style.fontSize = "13px";
-      title.textContent = job.name + "（作業前 " + fmt(job.beforeAt) + (job.afterAt ? "／作業後 " + fmt(job.afterAt) : "") + "）";
-      const btns = document.createElement("span"); btns.className = "row";
-      const pick = document.createElement("button");
-      pick.className = "btn ghost"; pick.type = "button"; pick.textContent = "この案件を続ける";
-      pick.addEventListener("click", () => {
-        currentJobId = job.id;
-        $("currentLabel").textContent = job.name;
-        $("jobName").value = job.name;
-        setMode(job.before ? "after" : "before");
+  $("btnSaveAll").addEventListener("click", () => {
+    const j = job();
+    if (!j) return;
+    let delay = 0;
+    befores(j).forEach((b, i) => {
+      afters(j).filter((a) => a.pairId === b.id).forEach((a, k) => {
+        setTimeout(() => exportPair(b, a, i + 1, k + 1), delay);
+        delay += 600;
       });
-      const dl = document.createElement("button");
-      dl.className = "btn"; dl.type = "button"; dl.textContent = "報告用画像を保存";
-      dl.disabled = !(job.before && job.after);
-      dl.addEventListener("click", () => exportPair(job));
-      btns.append(pick, dl);
-      meta.append(title, btns);
-      card.append(bImg, aImg, meta);
-      list.appendChild(card);
-    }
-  }
+    });
+  });
 
+  // ---------- 起動 ----------
   (async function init() {
     db = await openDb();
-    (await loadJobs()).forEach((j) => jobsMap.set(j.id, j));
-    renderJobs();
-    setMode("before");
+    (await loadJobs()).forEach((j) => {
+      if (!j.photos) {
+        // 旧版（1組のみ）のデータを新しい形式に移す
+        j.photos = [];
+        if (j.before) j.photos.push({ id: uid("p"), kind: "before", data: j.before, at: j.beforeAt, pairId: null });
+        if (j.after) j.photos.push({ id: uid("p"), kind: "after", data: j.after, at: j.afterAt, pairId: j.photos.length ? j.photos[0].id : null });
+      }
+      jobsMap.set(j.id, j);
+    });
+    const latest = [...jobsMap.values()].sort((x, y) => (y.createdAt || "").localeCompare(x.createdAt || ""))[0];
+    renderJobSelect();
+    if (latest) selectJob(latest.id); else setMode("before");
     startCamera();
   })();
 })();
